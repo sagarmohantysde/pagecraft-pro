@@ -46,6 +46,13 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
   const [zoom, setZoom] = useState(80);
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
   
+  // Store references to all editors
+  const editorsRef = useRef<{
+    header: Editor | null;
+    body: Editor | null;
+    footer: Editor | null;
+  }>({ header: null, body: null, footer: null });
+  
   const pageRef = useRef<HTMLDivElement>(null);
 
   const handleSave = useCallback(() => {
@@ -66,7 +73,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
     const reader = new FileReader();
     reader.onload = (e) => {
       const base64 = e.target?.result as string;
-      activeEditor.chain().focus().setImage({ src: base64 }).run();
+      activeEditor.chain().focus().setResizableImage({ src: base64 }).run();
     };
     reader.readAsDataURL(file);
   }, [activeEditor]);
@@ -84,7 +91,7 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
       const reader = new FileReader();
       reader.onload = (e) => {
         const base64 = e.target?.result as string;
-        activeEditor.chain().focus().setImage({ src: base64 }).run();
+        activeEditor.chain().focus().setResizableImage({ src: base64 }).run();
       };
       reader.readAsDataURL(blob);
     } catch (error) {
@@ -199,9 +206,32 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
               onFooterChange={setFooterContent}
               onHeaderHeightChange={setHeaderHeight}
               onFooterHeightChange={setFooterHeight}
-              onHeaderEditorReady={(editor) => !headerFooterLocked && setActiveEditor(editor)}
-              onBodyEditorReady={(editor) => headerFooterLocked && setActiveEditor(editor)}
-              onFooterEditorReady={(editor) => !headerFooterLocked && setActiveEditor(editor)}
+              onHeaderEditorReady={(editor) => {
+                editorsRef.current.header = editor;
+                if (!headerFooterLocked) setActiveEditor(editor);
+              }}
+              onBodyEditorReady={(editor) => {
+                editorsRef.current.body = editor;
+                if (headerFooterLocked) setActiveEditor(editor);
+              }}
+              onFooterEditorReady={(editor) => {
+                editorsRef.current.footer = editor;
+              }}
+              onHeaderFocus={() => {
+                if (!headerFooterLocked && editorsRef.current.header) {
+                  setActiveEditor(editorsRef.current.header);
+                }
+              }}
+              onBodyFocus={() => {
+                if (headerFooterLocked && editorsRef.current.body) {
+                  setActiveEditor(editorsRef.current.body);
+                }
+              }}
+              onFooterFocus={() => {
+                if (!headerFooterLocked && editorsRef.current.footer) {
+                  setActiveEditor(editorsRef.current.footer);
+                }
+              }}
               zoom={zoom}
               pageNumber={1}
             />
