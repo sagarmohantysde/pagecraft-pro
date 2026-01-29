@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Paper } from '@mui/material';
 import { RegionEditor } from './RegionEditor';
+import { Editor } from '@tiptap/react';
 
 interface DocumentPageProps {
   headerContent: string;
@@ -14,9 +15,12 @@ interface DocumentPageProps {
   onFooterChange: (content: string) => void;
   onHeaderHeightChange: (height: number) => void;
   onFooterHeightChange: (height: number) => void;
-  onHeaderEditorReady?: (editor: any) => void;
-  onBodyEditorReady?: (editor: any) => void;
-  onFooterEditorReady?: (editor: any) => void;
+  onHeaderEditorReady?: (editor: Editor) => void;
+  onBodyEditorReady?: (editor: Editor) => void;
+  onFooterEditorReady?: (editor: Editor) => void;
+  onHeaderFocus?: () => void;
+  onBodyFocus?: () => void;
+  onFooterFocus?: () => void;
   zoom: number;
   pageNumber?: number;
 }
@@ -40,6 +44,9 @@ export const DocumentPage: React.FC<DocumentPageProps> = ({
   onHeaderEditorReady,
   onBodyEditorReady,
   onFooterEditorReady,
+  onHeaderFocus,
+  onBodyFocus,
+  onFooterFocus,
   zoom,
   pageNumber = 1,
 }) => {
@@ -91,6 +98,7 @@ export const DocumentPage: React.FC<DocumentPageProps> = ({
           showResizeHandle={!headerFooterLocked}
           handlePosition="bottom"
           onEditorReady={onHeaderEditorReady}
+          onFocus={onHeaderFocus}
         />
 
         {/* Body Region */}
@@ -100,6 +108,7 @@ export const DocumentPage: React.FC<DocumentPageProps> = ({
           onChange={onBodyChange}
           locked={bodyLocked}
           onEditorReady={onBodyEditorReady}
+          onFocus={onBodyFocus}
         />
 
         {/* Footer Region */}
@@ -113,6 +122,7 @@ export const DocumentPage: React.FC<DocumentPageProps> = ({
           showResizeHandle={!headerFooterLocked}
           handlePosition="top"
           onEditorReady={onFooterEditorReady}
+          onFocus={onFooterFocus}
         />
       </Paper>
     </Box>

@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { Editor } from '@tiptap/react';
 import {
   Box,
@@ -8,6 +8,7 @@ import {
   FormControl,
   Divider,
   Tooltip,
+  SelectChangeEvent,
 } from '@mui/material';
 import {
   FormatBold,
@@ -38,7 +39,18 @@ const fontFamilies = [
   { value: 'Verdana', label: 'Verdana' },
 ];
 
-const fontSizes = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
+const fontSizeOptions = [
+  { value: '12px', label: '12' },
+  { value: '14px', label: '14' },
+  { value: '16px', label: '16' },
+  { value: '18px', label: '18' },
+  { value: '20px', label: '20' },
+  { value: '24px', label: '24' },
+  { value: '28px', label: '28' },
+  { value: '32px', label: '32' },
+  { value: '36px', label: '36' },
+  { value: '48px', label: '48' },
+];
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   editor,
@@ -46,10 +58,24 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
   onInsertSampleImage,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [fontFamily, setFontFamily] = React.useState('Arial');
-  const [fontSize, setFontSize] = React.useState(12);
+
+  const handleFontFamilyChange = useCallback((e: SelectChangeEvent<string>) => {
+    const family = e.target.value;
+    if (editor) {
+      editor.chain().focus().setFontFamily(family).run();
+    }
+  }, [editor]);
+
+  const handleFontSizeChange = useCallback((e: SelectChangeEvent<string>) => {
+    const size = e.target.value;
+    if (editor) {
+      editor.chain().focus().setFontSize(size).run();
+    }
+  }, [editor]);
 
   if (!editor) return null;
+
+  const currentFontFamily = editor.getAttributes('textStyle').fontFamily || 'Arial';
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,7 +90,7 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
     onClick, 
     active = false, 
     tooltip 
-  }: { 
+  }: {
     icon: React.ReactNode; 
     onClick: () => void; 
     active?: boolean;
@@ -117,12 +143,12 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       {/* Font Family */}
       <FormControl size="small" sx={{ minWidth: 120 }}>
         <Select
-          value={fontFamily}
-          onChange={(e) => setFontFamily(e.target.value)}
+          value={currentFontFamily}
+          onChange={handleFontFamilyChange}
           sx={{ fontSize: '0.875rem' }}
         >
           {fontFamilies.map((font) => (
-            <MenuItem key={font.value} value={font.value}>
+            <MenuItem key={font.value} value={font.value} sx={{ fontFamily: font.value }}>
               {font.label}
             </MenuItem>
           ))}
@@ -132,13 +158,13 @@ export const EditorToolbar: React.FC<EditorToolbarProps> = ({
       {/* Font Size */}
       <FormControl size="small" sx={{ minWidth: 70 }}>
         <Select
-          value={fontSize}
-          onChange={(e) => setFontSize(Number(e.target.value))}
+          value={editor.getAttributes('textStyle').fontSize || '16px'}
+          onChange={handleFontSizeChange}
           sx={{ fontSize: '0.875rem' }}
         >
-          {fontSizes.map((size) => (
-            <MenuItem key={size} value={size}>
-              {size}
+          {fontSizeOptions.map((size) => (
+            <MenuItem key={size.value} value={size.value}>
+              {size.label}
             </MenuItem>
           ))}
         </Select>

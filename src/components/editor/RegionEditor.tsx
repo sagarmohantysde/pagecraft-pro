@@ -1,16 +1,20 @@
 import React, { useEffect, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
+import { TextStyle } from '@tiptap/extension-text-style';
+import FontFamily from '@tiptap/extension-font-family';
 import { Box, Typography } from '@mui/material';
 import { Lock } from '@mui/icons-material';
 import { RegionProps } from '@/types/document';
+import { ResizableImageExtension } from './ResizableImageExtension';
+import { FontSizeExtension } from './FontSizeExtension';
 
 interface RegionEditorProps extends RegionProps {
   type: 'header' | 'body' | 'footer';
   onEditorReady?: (editor: any) => void;
+  onFocus?: () => void;
 }
 
 export const RegionEditor: React.FC<RegionEditorProps> = ({
@@ -24,6 +28,7 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
   showResizeHandle = false,
   handlePosition = 'bottom',
   onEditorReady,
+  onFocus,
 }) => {
   const editor = useEditor({
     extensions: [
@@ -32,19 +37,22 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
           levels: [1, 2, 3],
         },
       }),
-      Image.configure({
-        inline: true,
-        allowBase64: true,
-      }),
+      ResizableImageExtension,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
       Underline,
+      TextStyle,
+      FontFamily,
+      FontSizeExtension,
     ],
     content: content || '',
     editable: !locked,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
+    },
+    onFocus: () => {
+      onFocus?.();
     },
   });
 
