@@ -39,12 +39,18 @@ const ResizableImageComponent: React.FC<NodeViewProps> = ({
     }
   }, [width, height, updateAttributes]);
 
+  // Use ref to track current dimensions during resize to avoid stale closure
+  const currentDimensions = useRef(dimensions);
+  useEffect(() => {
+    currentDimensions.current = dimensions;
+  }, [dimensions]);
+
   const handleResizeStart = useCallback((e: React.MouseEvent, corner: string) => {
     e.preventDefault();
     e.stopPropagation();
     
     startPos.current = { x: e.clientX, y: e.clientY };
-    startSize.current = { ...dimensions };
+    startSize.current = { ...currentDimensions.current };
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startPos.current.x;
@@ -59,17 +65,19 @@ const ResizableImageComponent: React.FC<NodeViewProps> = ({
       const newHeight = newWidth / aspectRatio.current;
       
       setDimensions({ width: newWidth, height: newHeight });
+      currentDimensions.current = { width: newWidth, height: newHeight };
     };
 
     const handleMouseUp = () => {
-      updateAttributes({ width: dimensions.width, height: dimensions.height });
+      // Use the ref to get the latest dimensions
+      updateAttributes({ width: currentDimensions.current.width, height: currentDimensions.current.height });
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  }, [dimensions, updateAttributes]);
+  }, [updateAttributes]);
 
   // Update attributes when dimensions change
   useEffect(() => {

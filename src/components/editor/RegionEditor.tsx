@@ -129,12 +129,20 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
     },
   };
 
+  // Calculate pixel height from percentage for header/footer
+  const getRegionHeight = () => {
+    if (type === 'body') return 'auto';
+    // A4 height is 1123px, calculate percentage
+    const a4Height = 1123;
+    return `${(height || 15) * a4Height / 100}px`;
+  };
+
   return (
     <Box
       className="region-container"
       sx={{
         position: 'relative',
-        height: type === 'body' ? 'auto' : `${height}%`,
+        height: getRegionHeight(),
         flex: type === 'body' ? 1 : 'none',
         minHeight: type === 'body' ? 0 : 60,
         overflow: 'hidden',
