@@ -8,9 +8,7 @@ import {
   IconButton,
   Button,
   TextField,
-  Slider,
   Tooltip,
-  Stack,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -20,9 +18,14 @@ import {
   PictureAsPdf,
 } from '@mui/icons-material';
 import { EditorToolbar } from './EditorToolbar';
-import { DocumentPage } from './DocumentPage';
+import { MultiPageDocument } from './MultiPageDocument';
 import { DocumentTemplate } from '@/types/document';
 import html2pdf from 'html2pdf.js';
+
+interface PageData {
+  id: string;
+  bodyContent: string;
+}
 
 interface DocumentEditorProps {
   template: DocumentTemplate;
@@ -35,11 +38,14 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
   template,
   onSave,
   onBack,
-  headerFooterLocked = true, // Default: template creation mode (header/footer editable)
+  headerFooterLocked = true,
 }) => {
   const [name, setName] = useState(template.name);
   const [headerContent, setHeaderContent] = useState(template.headerContent);
-  const [bodyContent, setBodyContent] = useState(template.bodyContent);
+  const [pages, setPages] = useState<PageData[]>(() => {
+    // Initialize with existing body content or empty page
+    return [{ id: crypto.randomUUID(), bodyContent: template.bodyContent }];
+  });
   const [footerContent, setFooterContent] = useState(template.footerContent);
   const [headerHeight, setHeaderHeight] = useState(template.headerHeight);
   const [footerHeight, setFooterHeight] = useState(template.footerHeight);
@@ -49,23 +55,25 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
   // Store references to all editors
   const editorsRef = useRef<{
     header: Editor | null;
-    body: Editor | null;
+    body: Map<number, Editor>;
     footer: Editor | null;
-  }>({ header: null, body: null, footer: null });
+  }>({ header: null, body: new Map(), footer: null });
   
   const pageRef = useRef<HTMLDivElement>(null);
 
   const handleSave = useCallback(() => {
+    // Combine all page body contents for saving
+    const combinedBodyContent = pages.map(p => p.bodyContent).join('<!-- PAGE_BREAK -->');
     onSave({
       ...template,
       name,
       headerContent,
-      bodyContent,
+      bodyContent: combinedBodyContent,
       footerContent,
       headerHeight,
       footerHeight,
     });
-  }, [template, name, headerContent, bodyContent, footerContent, headerHeight, footerHeight, onSave]);
+  }, [template, name, headerContent, pages, footerContent, headerHeight, footerHeight, onSave]);
 
   const handleImageUpload = useCallback(async (file: File) => {
     if (!activeEditor) return;
@@ -194,15 +202,13 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
           }}
         >
           <Box ref={pageRef}>
-            <DocumentPage
+            <MultiPageDocument
               headerContent={headerContent}
-              bodyContent={bodyContent}
               footerContent={footerContent}
               headerHeight={headerHeight}
               footerHeight={footerHeight}
               headerFooterLocked={headerFooterLocked}
               onHeaderChange={setHeaderContent}
-              onBodyChange={setBodyContent}
               onFooterChange={setFooterContent}
               onHeaderHeightChange={setHeaderHeight}
               onFooterHeightChange={setFooterHeight}
@@ -210,21 +216,23 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
                 editorsRef.current.header = editor;
                 if (!headerFooterLocked) setActiveEditor(editor);
               }}
-              onBodyEditorReady={(editor) => {
-                editorsRef.current.body = editor;
-                if (headerFooterLocked) setActiveEditor(editor);
-              }}
               onFooterEditorReady={(editor) => {
                 editorsRef.current.footer = editor;
+                if (!headerFooterLocked && !activeEditor) setActiveEditor(editor);
+              }}
+              onBodyEditorReady={(editor, pageIndex) => {
+                editorsRef.current.body.set(pageIndex, editor);
+                if (headerFooterLocked && pageIndex === 0) setActiveEditor(editor);
               }}
               onHeaderFocus={() => {
                 if (!headerFooterLocked && editorsRef.current.header) {
                   setActiveEditor(editorsRef.current.header);
                 }
               }}
-              onBodyFocus={() => {
-                if (headerFooterLocked && editorsRef.current.body) {
-                  setActiveEditor(editorsRef.current.body);
+              onBodyFocus={(pageIndex) => {
+                if (headerFooterLocked) {
+                  const editor = editorsRef.current.body.get(pageIndex);
+                  if (editor) setActiveEditor(editor);
                 }
               }}
               onFooterFocus={() => {
@@ -232,8 +240,9 @@ export const DocumentEditor: React.FC<DocumentEditorProps> = ({
                   setActiveEditor(editorsRef.current.footer);
                 }
               }}
+              onPagesChange={setPages}
               zoom={zoom}
-              pageNumber={1}
+              initialPages={pages}
             />
           </Box>
         </Box>
