@@ -1,8 +1,7 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef, useMemo } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import TextAlign from '@tiptap/extension-text-align';
-import Underline from '@tiptap/extension-underline';
 import { TextStyle } from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
 import { Box, Typography } from '@mui/material';
@@ -10,6 +9,7 @@ import { Lock } from '@mui/icons-material';
 import { RegionProps } from '@/types/document';
 import { ResizableImageExtension } from './ResizableImageExtension';
 import { FontSizeExtension } from './FontSizeExtension';
+import { useRegionContentMinHeightPct } from './useRegionContentMinHeightPct';
 
 interface RegionEditorProps extends RegionProps {
   type: 'header' | 'body' | 'footer';
@@ -30,6 +30,8 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
   onEditorReady,
   onFocus,
 }) => {
+  const lastEmittedHtmlRef = useRef<string | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -41,7 +43,6 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
       TextAlign.configure({
         types: ['heading', 'paragraph'],
       }),
-      Underline,
       TextStyle,
       FontFamily,
       FontSizeExtension,
@@ -49,10 +50,19 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
     content: content || '',
     editable: !locked,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      lastEmittedHtmlRef.current = html;
+      onChange(html);
     },
     onFocus: () => {
       onFocus?.();
+    },
+    editorProps: {
+      // Prevent dragging content between header/body/footer editors.
+      handleDrop: (_view, _event, _slice, moved) => {
+        if (!moved) return true;
+        return false;
+      },
     },
   });
 
@@ -63,8 +73,17 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
   }, [editor, onEditorReady]);
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content || '');
+    if (!editor) return;
+    const incoming = content || '';
+
+    // If this change originated from this editor instance, don't re-apply content
+    // (prevents selection/position resets during image resize, etc.).
+    if (lastEmittedHtmlRef.current && incoming === lastEmittedHtmlRef.current) return;
+
+    const current = editor.getHTML();
+    if (incoming !== current) {
+      // Don't emit update events when syncing external content into the editor.
+      editor.commands.setContent(incoming, { emitUpdate: false });
     }
   }, [content, editor]);
 
@@ -74,36 +93,60 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
     }
   }, [locked, editor]);
 
+  const headerFooterMinHeightPct = useRegionContentMinHeightPct({
+    type,
+    editor,
+    a4HeightPx: 1123,
+    minPx: 60,
+    maxPct: 40,
+    // matches the padding inside the content wrapper Box (p: 2)
+    extraPx: 32,
+  });
+
+  const minResizeHeightPct = useMemo(() => {
+    if (type === 'body') return 0;
+    return Math.max(5, headerFooterMinHeightPct || 0);
+  }, [headerFooterMinHeightPct, type]);
+
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
     if (!onHeightChange) return;
-    
+
     e.preventDefault();
     const startY = e.clientY;
     const startHeight = height || 15;
-    
+
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaY = moveEvent.clientY - startY;
-      const containerHeight = window.innerHeight;
-      const deltaPercent = (deltaY / containerHeight) * 100;
-      
+      // Region heights are defined relative to the A4 page height, not viewport height.
+      const a4Height = 1123;
+      const deltaPercent = (deltaY / a4Height) * 100;
+
       let newHeight: number;
+      const minPct = type === 'body' ? 5 : minResizeHeightPct;
+
       if (handlePosition === 'bottom') {
-        newHeight = Math.max(5, Math.min(40, startHeight + deltaPercent));
+        newHeight = Math.max(minPct, Math.min(40, startHeight + deltaPercent));
       } else {
-        newHeight = Math.max(5, Math.min(40, startHeight - deltaPercent));
+        newHeight = Math.max(minPct, Math.min(40, startHeight - deltaPercent));
       }
-      
+
       onHeightChange(newHeight);
     };
-    
+
     const handleMouseUp = () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-    
+
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  }, [height, onHeightChange, handlePosition]);
+  }, [height, minResizeHeightPct, onHeightChange, handlePosition, type]);
+
+  const clampedHeight = useMemo(() => {
+    if (type === 'body') return height;
+    const raw = height ?? 15;
+    return Math.max(raw, headerFooterMinHeightPct || 0);
+  }, [headerFooterMinHeightPct, height, type]);
 
   const getPlaceholderText = () => {
     if (placeholder) return placeholder;
@@ -134,7 +177,7 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
     if (type === 'body') return 'auto';
     // A4 height is 1123px, calculate percentage
     const a4Height = 1123;
-    return `${(height || 15) * a4Height / 100}px`;
+    return `${(clampedHeight || 15) * a4Height / 100}px`;
   };
 
   return (
@@ -151,6 +194,9 @@ export const RegionEditor: React.FC<RegionEditorProps> = ({
           backgroundColor: 'action.disabledBackground',
           opacity: 0.7,
         }),
+      }}
+      onMouseDownCapture={() => {
+        if (!locked) onFocus?.();
       }}
     >
       {/* Resize Handle */}

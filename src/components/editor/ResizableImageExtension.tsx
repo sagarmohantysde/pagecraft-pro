@@ -99,6 +99,57 @@ const ResizableImageComponent: React.FC<NodeViewProps> = ({
           outlineOffset: '2px',
         }}
       >
+        {/* Drag handle (enables reliable dragging inside the editor) */}
+        {selected && (
+          <div
+            data-drag-handle
+            contentEditable={false}
+            style={{
+              position: 'absolute',
+              left: 6,
+              top: 6,
+              width: 26,
+              height: 14,
+              borderRadius: 999,
+              background: '#1976d2',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              cursor: 'grab',
+              zIndex: 12,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              padding: '0 6px',
+            }}
+            title="Drag to move"
+          >
+            <span
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.9)',
+              }}
+            />
+            <span
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.9)',
+              }}
+            />
+            <span
+              style={{
+                width: 3,
+                height: 3,
+                borderRadius: 999,
+                background: 'rgba(255,255,255,0.9)',
+              }}
+            />
+          </div>
+        )}
+
         <img
           ref={imageRef}
           src={src}
